@@ -82,6 +82,18 @@
       0% { opacity: 0; transform: translateY(4px); }
       100% { opacity: 1; transform: translateY(0); }
     }
+
+    .kanban-column { border: none; background: transparent; }
+    .kanban-add-btn { margin-top: 10px; color: #94a3b8; font-size: 13px; }
+    .kanban-add-btn:hover { color: #e2e8f0; }
+    .task-card { background: rgba(15,23,42,0.75); border: 1px solid rgba(148,163,184,0.2); border-radius: 12px; padding: 10px; transition: transform .15s ease, box-shadow .2s ease; }
+    .task-card.dragging { opacity: .7; transform: scale(1.02); box-shadow: 0 10px 28px rgba(6,182,212,.25); }
+    .drop-highlight { outline: 2px dashed rgba(6,182,212,.5); background: rgba(6,182,212,.06); }
+    .dot-menu { position: relative; }
+    .dot-dropdown { position: absolute; right: 0; top: 22px; z-index: 20; min-width: 100px; background: #111827; border: 1px solid rgba(148,163,184,.25); border-radius: 8px; overflow: hidden; }
+    .dot-dropdown button { display:block; width:100%; text-align:left; padding:6px 10px; font-size:12px; }
+    .dot-dropdown button:hover { background: rgba(148,163,184,.15); }
+
   </style>
 </head>
 <body class="font-sans text-slate-100">
@@ -156,43 +168,88 @@
       </section>
 
       <section id="panel-tasks" class="tab-panel">
-        <div class="glass-card p-3 md:p-4 mb-5 opacity-0 card-stagger">
-          <div class="flex flex-col xl:flex-row xl:items-center gap-3 xl:gap-4 min-h-[96px]">
-            <div class="w-full xl:w-auto flex items-center justify-center xl:justify-start">
-              <div class="w-[82px] h-[82px]">
-                <canvas id="tasksDonutChart" width="82" height="82"></canvas>
-              </div>
+        <div class="glass-card p-3 md:p-4 mb-4 opacity-0 card-stagger max-h-[120px] overflow-hidden">
+          <div class="flex items-center gap-3 h-full">
+            <div class="w-[80px] h-[80px] shrink-0">
+              <canvas id="tasksDonutChart" width="80" height="80"></canvas>
             </div>
             <div id="tasksCompactStats" class="grid grid-cols-3 gap-2 flex-1"></div>
-            <div class="xl:ml-auto">
-              <span id="tasksMotivationBadge" class="inline-flex items-center text-xs md:text-sm px-3 py-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.25)]">Loading progress...</span>
-            </div>
+            <span id="tasksMotivationBadge" class="hidden xl:inline-flex items-center text-xs px-3 py-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.25)]">Loading progress...</span>
+          </div>
+        </div>
+
+        <div class="glass-card p-3 mb-4 opacity-0 card-stagger">
+          <div class="flex flex-wrap items-center gap-2">
+            <label class="text-xs text-slate-400">Category</label>
+            <select id="taskFilterCategory" class="bg-slate-900/70 border border-white/10 rounded-lg px-2 py-1 text-sm">
+              <option value="all">All</option>
+              <option value="Work">Work</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Development">Development</option>
+              <option value="Personal">Personal</option>
+            </select>
+            <label class="text-xs text-slate-400 ml-2">Priority</label>
+            <select id="taskFilterPriority" class="bg-slate-900/70 border border-white/10 rounded-lg px-2 py-1 text-sm">
+              <option value="all">All</option>
+              <option value="Urgent">Urgent</option>
+              <option value="Normal">Normal</option>
+              <option value="Someday">Someday</option>
+            </select>
           </div>
         </div>
 
         <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
-          <div class="glass-card p-4 opacity-0 card-stagger" data-column="todo">
-            <div class="flex items-center justify-between mb-3">
+          <div class="p-1 opacity-0 card-stagger kanban-column" data-column="todo">
+            <div class="flex items-center justify-between mb-3 px-2">
               <h3 class="font-semibold text-blue-300">To Do</h3>
-              <span id="todoCount" class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-300">0</span>
+              <span id="todoCount" class="text-xs text-blue-300">0</span>
             </div>
-            <div id="todoColumn" class="space-y-3 min-h-[380px]"></div>
+            <div id="todoColumn" class="space-y-3 min-h-[380px] rounded-xl"></div>
+            <button class="kanban-add-btn" data-add-status="todo">+ Add Task</button>
+            <div id="addFormTodo" class="hidden mt-2"></div>
           </div>
 
-          <div class="glass-card p-4 opacity-0 card-stagger" data-column="in_progress">
-            <div class="flex items-center justify-between mb-3">
+          <div class="p-1 opacity-0 card-stagger kanban-column" data-column="in_progress">
+            <div class="flex items-center justify-between mb-3 px-2">
               <h3 class="font-semibold text-amber-300">Doing</h3>
-              <span id="inProgressCount" class="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-300">0</span>
+              <span id="inProgressCount" class="text-xs text-amber-300">0</span>
             </div>
-            <div id="inProgressColumn" class="space-y-3 min-h-[380px]"></div>
+            <div id="inProgressColumn" class="space-y-3 min-h-[380px] rounded-xl"></div>
+            <button class="kanban-add-btn" data-add-status="in_progress">+ Add Task</button>
+            <div id="addFormInProgress" class="hidden mt-2"></div>
           </div>
 
-          <div class="glass-card p-4 opacity-0 card-stagger" data-column="done">
-            <div class="flex items-center justify-between mb-3">
+          <div class="p-1 opacity-0 card-stagger kanban-column" data-column="done">
+            <div class="flex items-center justify-between mb-3 px-2">
               <h3 class="font-semibold text-emerald-300">Done</h3>
-              <span id="doneCount" class="text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300">0</span>
+              <span id="doneCount" class="text-xs text-emerald-300">0</span>
             </div>
-            <div id="doneColumn" class="space-y-3 min-h-[380px]"></div>
+            <div id="doneColumn" class="space-y-3 min-h-[380px] rounded-xl"></div>
+            <button class="kanban-add-btn" data-add-status="done">+ Add Task</button>
+            <div id="addFormDone" class="hidden mt-2"></div>
+          </div>
+        </div>
+
+        <div id="editTaskModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm items-center justify-center p-4">
+          <div class="glass-card w-full max-w-lg p-5">
+            <h3 class="text-lg font-semibold mb-4">Edit Task</h3>
+            <form id="editTaskForm" class="space-y-3">
+              <input type="hidden" id="editTaskId" />
+              <input id="editTitle" class="w-full bg-slate-900/70 border border-white/10 rounded-lg px-3 py-2" placeholder="Title" required />
+              <div class="grid grid-cols-2 gap-2">
+                <select id="editCategory" class="bg-slate-900/70 border border-white/10 rounded-lg px-2 py-2"><option>Work</option><option>Marketing</option><option>Development</option><option>Personal</option></select>
+                <select id="editPriority" class="bg-slate-900/70 border border-white/10 rounded-lg px-2 py-2"><option>Urgent</option><option>Normal</option><option>Someday</option></select>
+              </div>
+              <div class="grid grid-cols-2 gap-2">
+                <select id="editTrackStatus" class="bg-slate-900/70 border border-white/10 rounded-lg px-2 py-2"><option>On Track</option><option>At Risk</option><option>Off Track</option></select>
+                <input id="editDueDate" type="date" class="bg-slate-900/70 border border-white/10 rounded-lg px-2 py-2" />
+              </div>
+              <select id="editStatus" class="w-full bg-slate-900/70 border border-white/10 rounded-lg px-2 py-2"><option value="todo">To Do</option><option value="in_progress">Doing</option><option value="done">Done</option></select>
+              <div class="flex justify-end gap-2 pt-2">
+                <button type="button" id="editCancel" class="px-3 py-2 rounded-lg border border-white/15">Cancel</button>
+                <button type="submit" class="px-3 py-2 rounded-lg bg-cyan-500/20 border border-cyan-400/40 text-cyan-200">Save</button>
+              </div>
+            </form>
           </div>
         </div>
       </section>
@@ -262,6 +319,13 @@
     const doneCountEl = document.getElementById('doneCount');
     const tasksCompactStatsEl = document.getElementById('tasksCompactStats');
     const tasksMotivationBadgeEl = document.getElementById('tasksMotivationBadge');
+    const taskFilterCategoryEl = document.getElementById('taskFilterCategory');
+    const taskFilterPriorityEl = document.getElementById('taskFilterPriority');
+    const addFormTodoEl = document.getElementById('addFormTodo');
+    const addFormInProgressEl = document.getElementById('addFormInProgress');
+    const addFormDoneEl = document.getElementById('addFormDone');
+    const editTaskModalEl = document.getElementById('editTaskModal');
+    const editTaskFormEl = document.getElementById('editTaskForm');
 
     function movePillTo(button) {
       const navRect = nav.getBoundingClientRect();
@@ -482,11 +546,25 @@
     }
 
 
-    function taskPriorityPill(priority) {
-      const p = (priority || 'N/A').toLowerCase();
-      if (p === 'high') return 'bg-red-500/20 text-red-300 border border-red-400/30';
-      if (p === 'medium') return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
-      if (p === 'low') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+    function badgeClassCategory(v) {
+      if (v === 'Work') return 'bg-purple-500/20 text-purple-300 border border-purple-400/30';
+      if (v === 'Marketing') return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
+      if (v === 'Development') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+      if (v === 'Personal') return 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30';
+      return 'bg-slate-500/20 text-slate-300 border border-slate-400/30';
+    }
+
+    function badgeClassPriority(v) {
+      if (v === 'Urgent') return 'bg-red-500/20 text-red-300 border border-red-400/30';
+      if (v === 'Normal') return 'bg-blue-500/20 text-blue-300 border border-blue-400/30';
+      if (v === 'Someday') return 'bg-slate-500/20 text-slate-300 border border-slate-400/30';
+      return 'bg-slate-500/20 text-slate-300 border border-slate-400/30';
+    }
+
+    function badgeClassTrack(v) {
+      if (v === 'On Track') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+      if (v === 'At Risk') return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
+      if (v === 'Off Track') return 'bg-red-500/20 text-red-300 border border-red-400/30';
       return 'bg-slate-500/20 text-slate-300 border border-slate-400/30';
     }
 
@@ -499,131 +577,234 @@
 
     function taskCardHTML(task) {
       return `
-        <article class="bg-white/[0.03] border border-white/10 rounded-xl p-3 shadow-[0_8px_20px_rgba(0,0,0,0.22)] cursor-grab" draggable="true" data-task-id="${task.id}">
-          <p class="font-medium text-sm mb-2 break-words">${task.title || 'Untitled Task'}</p>
-          <div class="flex flex-wrap items-center gap-2 text-xs mb-2">
-            <span class="px-2 py-1 rounded border border-slate-500/30 bg-slate-500/15 text-slate-300">${task.category || 'N/A'}</span>
-            <span class="px-2 py-1 rounded ${taskPriorityPill(task.priority)}">${task.priority || 'N/A'}</span>
-            <span class="px-2 py-1 rounded border border-cyan-400/30 bg-cyan-500/10 text-cyan-300">${task.track_status || 'N/A'}</span>
+        <article class="task-card" draggable="true" data-task-id="${task.id}" data-task='${JSON.stringify(task).replaceAll("'", "&#39;")}'>
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="flex items-start gap-2 flex-1">
+              <span class="w-4 h-4 mt-[2px] rounded-full border border-slate-400/60"></span>
+              <p class="font-semibold text-sm leading-tight break-words">${task.title || 'Untitled Task'}</p>
+            </div>
+            <div class="dot-menu">
+              <button class="text-slate-400 hover:text-slate-200" data-menu-btn="${task.id}">⋯</button>
+              <div class="dot-dropdown hidden" data-menu="${task.id}">
+                <button data-edit="${task.id}">Edit</button>
+                <button data-delete="${task.id}" class="text-red-300">Delete</button>
+              </div>
+            </div>
           </div>
-          <p class="text-xs text-slate-400">Due: <span class="text-slate-300">${formatShortDate(task.due_date)}</span></p>
+          <div class="flex flex-wrap gap-2 text-[11px] mb-2">
+            <span class="px-2 py-1 rounded-full ${badgeClassCategory(task.category || 'N/A')}">${task.category || 'N/A'}</span>
+            <span class="px-2 py-1 rounded-full ${badgeClassPriority(task.priority || 'N/A')}">${task.priority || 'N/A'}</span>
+            <span class="px-2 py-1 rounded-full ${badgeClassTrack(task.track_status || 'N/A')}">${task.track_status || 'N/A'}</span>
+          </div>
+          <p class="text-[11px] text-slate-400">Due: ${formatShortDate(task.due_date)}</p>
         </article>
       `;
     }
 
-    function emptyColumnHTML(msg) {
-      return `<div class="text-xs text-slate-500 border border-dashed border-white/10 rounded-lg p-4 text-center">${msg}</div>`;
+    function emptyColumnHTML(msg) { return `<div class="text-xs text-slate-500 border border-dashed border-white/10 rounded-lg p-4 text-center">${msg}</div>`; }
+
+    function filteredRows(rows) {
+      return rows.filter(r => {
+        const catOk = taskFilterCategoryEl.value === 'all' || (r.category || '') === taskFilterCategoryEl.value;
+        const priOk = taskFilterPriorityEl.value === 'all' || (r.priority || '') === taskFilterPriorityEl.value;
+        return catOk && priOk;
+      });
     }
 
     function renderTasksColumns(rows) {
-      const todo = rows.filter(r => (r.status || 'todo') === 'todo');
-      const doing = rows.filter(r => r.status === 'in_progress');
-      const done = rows.filter(r => r.status === 'done');
-
+      const filtered = filteredRows(rows);
+      const todo = filtered.filter(r => (r.status || 'todo') === 'todo');
+      const doing = filtered.filter(r => r.status === 'in_progress');
+      const done = filtered.filter(r => r.status === 'done');
       todoColumnEl.innerHTML = todo.length ? todo.map(taskCardHTML).join('') : emptyColumnHTML('No tasks yet');
       inProgressColumnEl.innerHTML = doing.length ? doing.map(taskCardHTML).join('') : emptyColumnHTML('No tasks in progress');
       doneColumnEl.innerHTML = done.length ? done.map(taskCardHTML).join('') : emptyColumnHTML('No completed tasks yet');
-
       todoCountEl.textContent = String(todo.length);
       inProgressCountEl.textContent = String(doing.length);
       doneCountEl.textContent = String(done.length);
-
       bindTaskDnD();
+      bindTaskMenus();
       updateProductivityBar(todo.length, doing.length, done.length);
     }
 
     function updateProductivityBar(todoCount, doingCount, doneCount) {
       const total = todoCount + doingCount + doneCount;
       const donePct = total ? (doneCount / total) * 100 : 0;
-
       const cards = [
         { label: 'To Do', count: todoCount, pct: total ? (todoCount / total) * 100 : 0, color: '#3B82F6' },
         { label: 'Doing', count: doingCount, pct: total ? (doingCount / total) * 100 : 0, color: '#F59E0B' },
         { label: 'Done', count: doneCount, pct: total ? (doneCount / total) * 100 : 0, color: '#10B981' }
       ];
-
-      tasksCompactStatsEl.innerHTML = cards.map(c => `
-        <div class="rounded-xl border p-2 bg-white/[0.03]" style="border-color:${c.color}66; box-shadow:0 0 16px ${c.color}22;">
-          <p class="text-[11px] text-slate-400 uppercase tracking-wide">${c.label}</p>
-          <p class="text-base font-semibold" style="color:${c.color}">${c.count}</p>
-          <p class="text-[11px] text-slate-400">${c.pct.toFixed(0)}%</p>
-        </div>
-      `).join('');
-
+      tasksCompactStatsEl.innerHTML = cards.map(c => `<div class="rounded-xl border p-2 bg-white/[0.03]" style="border-color:${c.color}66; box-shadow:0 0 14px ${c.color}22;"><p class="text-[10px] text-slate-400 uppercase">${c.label}</p><p class="text-sm font-semibold" style="color:${c.color}">${c.count}</p><p class="text-[10px] text-slate-400">${c.pct.toFixed(0)}%</p></div>`).join('');
       let message = "Just getting started — let's go! 🚀";
-      if (donePct > 90) message = 'Outstanding — you crushed it! 🏆';
-      else if (donePct > 60) message = 'Almost there — finish strong! 🔥';
-      else if (donePct > 30) message = 'Good progress — keep pushing! 💪';
+      if (donePct >= 91) message = 'Outstanding — you crushed it! 🏆';
+      else if (donePct >= 61) message = 'Almost there — finish strong! 🔥';
+      else if (donePct >= 31) message = 'Good progress — keep pushing! 💪';
       tasksMotivationBadgeEl.textContent = message;
-
       const ctx = document.getElementById('tasksDonutChart');
-      if (!ctx) return;
       if (tasksDonutChart) tasksDonutChart.destroy();
-      tasksDonutChart = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: ['To Do', 'Doing', 'Done'],
-          datasets: [{ data: [todoCount, doingCount, doneCount], backgroundColor: ['#3B82F6','#F59E0B','#10B981'], borderWidth: 0 }]
-        },
-        options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: true } }, responsive: true, maintainAspectRatio: false }
-      });
+      tasksDonutChart = new Chart(ctx, { type:'doughnut', data:{ labels:['To Do','Doing','Done'], datasets:[{ data:[todoCount,doingCount,doneCount], backgroundColor:['#3B82F6','#F59E0B','#10B981'], borderWidth:0 }]}, options:{ cutout:'72%', plugins:{legend:{display:false}}, responsive:true, maintainAspectRatio:false }});
     }
 
-    async function loadTasksData() {
-      const { data, error } = await supabaseClient
-        .from('todos')
-        .select('id, title, category, priority, due_date, completed, status, track_status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(2000);
+    let tasksCache = [];
 
+    async function loadTasksData() {
+      const { data, error } = await supabaseClient.from('todos').select('id, title, category, priority, due_date, completed, status, track_status, created_at').order('created_at', { ascending: false }).limit(2000);
       if (error) {
         todoColumnEl.innerHTML = emptyColumnHTML(`Unable to fetch todos: ${error.message || 'Unknown error'}`);
-        inProgressColumnEl.innerHTML = emptyColumnHTML('');
-        doneColumnEl.innerHTML = emptyColumnHTML('');
         return;
       }
-
-      renderTasksColumns(data || []);
+      tasksCache = data || [];
+      renderTasksColumns(tasksCache);
       staggerIn(document.getElementById('panel-tasks'));
     }
 
     function bindTaskDnD() {
-      const draggable = document.querySelectorAll('[data-task-id]');
-      draggable.forEach(el => {
-        el.addEventListener('dragstart', e => {
-          e.dataTransfer.setData('text/plain', el.dataset.taskId);
-          e.dataTransfer.effectAllowed = 'move';
-        });
+      document.querySelectorAll('.task-card').forEach(el => {
+        el.addEventListener('dragstart', e => { el.classList.add('dragging'); e.dataTransfer.setData('text/plain', el.dataset.taskId); });
+        el.addEventListener('dragend', () => el.classList.remove('dragging'));
       });
-
-      const columns = [
-        { key: 'todo', el: todoColumnEl },
-        { key: 'in_progress', el: inProgressColumnEl },
-        { key: 'done', el: doneColumnEl }
-      ];
-
-      columns.forEach(col => {
-        col.el.addEventListener('dragover', e => { e.preventDefault(); col.el.classList.add('ring-2','ring-cyan-400/40'); });
-        col.el.addEventListener('dragleave', () => col.el.classList.remove('ring-2','ring-cyan-400/40'));
-        col.el.addEventListener('drop', async e => {
-          e.preventDefault();
-          col.el.classList.remove('ring-2','ring-cyan-400/40');
-          const taskId = e.dataTransfer.getData('text/plain');
-          if (!taskId) return;
-          const updates = { status: col.key, completed: col.key === 'done' };
-          const { error } = await supabaseClient.from('todos').update(updates).eq('id', taskId);
+      [todoColumnEl, inProgressColumnEl, doneColumnEl].forEach(col => {
+        const status = col.id === 'todoColumn' ? 'todo' : col.id === 'inProgressColumn' ? 'in_progress' : 'done';
+        col.ondragover = (e) => { e.preventDefault(); col.classList.add('drop-highlight'); };
+        col.ondragleave = () => col.classList.remove('drop-highlight');
+        col.ondrop = async (e) => {
+          e.preventDefault(); col.classList.remove('drop-highlight');
+          const taskId = e.dataTransfer.getData('text/plain'); if (!taskId) return;
+          const { error } = await supabaseClient.from('todos').update({ status, completed: status === 'done' }).eq('id', taskId);
           if (!error) loadTasksData();
-        });
+        };
       });
+    }
+
+    function addTaskFormHTML(status) {
+      return `<form class="glass-card p-3 space-y-2" data-add-form="${status}">
+        <input name="title" required placeholder="Task title" class="w-full bg-slate-900/70 border border-white/10 rounded px-2 py-1 text-sm" />
+        <div class="grid grid-cols-2 gap-2">
+          <select name="category" class="bg-slate-900/70 border border-white/10 rounded px-2 py-1 text-sm"><option>Work</option><option>Marketing</option><option>Development</option><option>Personal</option></select>
+          <select name="priority" class="bg-slate-900/70 border border-white/10 rounded px-2 py-1 text-sm"><option>Urgent</option><option>Normal</option><option>Someday</option></select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <select name="track_status" class="bg-slate-900/70 border border-white/10 rounded px-2 py-1 text-sm"><option>On Track</option><option>At Risk</option><option>Off Track</option></select>
+          <input type="date" name="due_date" class="bg-slate-900/70 border border-white/10 rounded px-2 py-1 text-sm" />
+        </div>
+        <div class="flex gap-2 justify-end"><button type="button" data-cancel-add="${status}" class="text-xs px-2 py-1 border border-white/15 rounded">Cancel</button><button type="submit" class="text-xs px-2 py-1 border border-cyan-400/35 text-cyan-200 rounded">Save</button></div>
+      </form>`;
+    }
+
+    function bindAddTask() {
+      document.querySelectorAll('[data-add-status]').forEach(btn => {
+        btn.onclick = () => {
+          const status = btn.dataset.addStatus;
+          const target = status === 'todo' ? addFormTodoEl : status === 'in_progress' ? addFormInProgressEl : addFormDoneEl;
+          target.innerHTML = addTaskFormHTML(status);
+          target.classList.remove('hidden');
+          target.querySelector('[data-cancel-add]').onclick = () => { target.classList.add('hidden'); target.innerHTML = ''; };
+          target.querySelector('form').onsubmit = async (e) => {
+            e.preventDefault();
+            const fd = new FormData(e.target);
+            const payload = {
+              title: fd.get('title'), category: fd.get('category'), priority: fd.get('priority'), track_status: fd.get('track_status'), due_date: fd.get('due_date') || null,
+              status, completed: status === 'done'
+            };
+            const { error } = await supabaseClient.from('todos').insert(payload);
+            if (!error) { target.classList.add('hidden'); target.innerHTML = ''; loadTasksData(); }
+          };
+        };
+      });
+    }
+
+    function openEditModal(task) {
+      document.getElementById('editTaskId').value = task.id;
+      document.getElementById('editTitle').value = task.title || '';
+      document.getElementById('editCategory').value = task.category || 'Work';
+      document.getElementById('editPriority').value = task.priority || 'Normal';
+      document.getElementById('editTrackStatus').value = task.track_status || 'On Track';
+      document.getElementById('editDueDate').value = task.due_date ? new Date(task.due_date).toISOString().slice(0,10) : '';
+      document.getElementById('editStatus').value = task.status || 'todo';
+      editTaskModalEl.classList.remove('hidden');
+      editTaskModalEl.classList.add('flex');
+    }
+
+    function bindTaskMenus() {
+      document.querySelectorAll('[data-menu-btn]').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.menuBtn;
+          document.querySelectorAll('.dot-dropdown').forEach(d => d.classList.add('hidden'));
+          const menu = document.querySelector(`[data-menu="${id}"]`);
+          if (menu) menu.classList.toggle('hidden');
+        };
+      });
+      document.querySelectorAll('[data-edit]').forEach(btn => {
+        btn.onclick = () => {
+          const id = btn.dataset.edit;
+          const card = document.querySelector(`[data-task-id="${id}"]`);
+          if (!card) return;
+          const task = JSON.parse(card.dataset.task.replaceAll('&#39;', "'"));
+          openEditModal(task);
+        };
+      });
+      document.querySelectorAll('[data-delete]').forEach(btn => {
+        btn.onclick = async () => {
+          const id = btn.dataset.delete;
+          const { error } = await supabaseClient.from('todos').delete().eq('id', id);
+          if (!error) loadTasksData();
+        };
+      });
+    }
+
+    function wireEditModal() {
+      document.getElementById('editCancel').onclick = () => { editTaskModalEl.classList.add('hidden'); editTaskModalEl.classList.remove('flex'); };
+      editTaskFormEl.onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('editTaskId').value;
+        const payload = {
+          title: document.getElementById('editTitle').value,
+          category: document.getElementById('editCategory').value,
+          priority: document.getElementById('editPriority').value,
+          track_status: document.getElementById('editTrackStatus').value,
+          due_date: document.getElementById('editDueDate').value || null,
+          status: document.getElementById('editStatus').value,
+          completed: document.getElementById('editStatus').value === 'done'
+        };
+        const { error } = await supabaseClient.from('todos').update(payload).eq('id', id);
+        if (!error) { editTaskModalEl.classList.add('hidden'); editTaskModalEl.classList.remove('flex'); loadTasksData(); }
+      };
+    }
+
+    async function seedSampleTasks() {
+      const titles = [
+        'Analyze competitor content strategy',
+        'Write weekly newsletter draft',
+        'Set up API integration',
+        'Record product demo video',
+        'Update landing page copy',
+        'Research new influencer partnerships'
+      ];
+      const { data, error } = await supabaseClient.from('todos').select('title').in('title', titles);
+      if (error) return;
+      if ((data || []).length >= 6) return;
+      const samples = [
+        { title:'Analyze competitor content strategy', category:'Work', priority:'Urgent', track_status:'At Risk', status:'todo', completed:false },
+        { title:'Write weekly newsletter draft', category:'Marketing', priority:'Normal', track_status:'On Track', status:'todo', completed:false },
+        { title:'Set up API integration', category:'Development', priority:'Normal', track_status:'On Track', status:'in_progress', completed:false },
+        { title:'Record product demo video', category:'Marketing', priority:'Urgent', track_status:'At Risk', status:'in_progress', completed:false },
+        { title:'Update landing page copy', category:'Work', priority:'Someday', track_status:'On Track', status:'done', completed:true },
+        { title:'Research new influencer partnerships', category:'Marketing', priority:'Normal', track_status:'On Track', status:'done', completed:true }
+      ];
+      await supabaseClient.from('todos').insert(samples);
     }
 
     function initTasksRealtime() {
       if (tasksInitialized) return;
       tasksInitialized = true;
-      loadTasksData();
-      supabaseClient.channel('todos-live')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, () => loadTasksData())
-        .subscribe();
+      bindAddTask();
+      wireEditModal();
+      taskFilterCategoryEl.onchange = () => renderTasksColumns(tasksCache);
+      taskFilterPriorityEl.onchange = () => renderTasksColumns(tasksCache);
+      seedSampleTasks().then(loadTasksData);
+      supabaseClient.channel('todos-live').on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, () => loadTasksData()).subscribe();
       setInterval(loadTasksData, 30000);
     }
 
