@@ -136,10 +136,20 @@
       </section>
 
       <section id="panel-content" class="tab-panel">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Content</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Content</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Content</h2></div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5" id="contentStats">
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">Content Tasks</p><p id="contentTotal" class="text-2xl font-semibold">-</p></div>
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">In Progress</p><p id="contentDoing" class="text-2xl font-semibold text-amber-300">-</p></div>
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">Done</p><p id="contentDone" class="text-2xl font-semibold text-emerald-300">-</p></div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div class="glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-3">Content Pipeline</h3>
+            <div id="contentPipeline" class="space-y-2"></div>
+          </div>
+          <div class="glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-3">Recent Content Logs</h3>
+            <div id="contentLogs" class="space-y-2"></div>
+          </div>
         </div>
       </section>
 
@@ -319,6 +329,12 @@
     const dashSuccessRateEl = document.getElementById('dashSuccessRate');
     const dashRecentAgentsEl = document.getElementById('dashRecentAgents');
     const dashRecentTasksEl = document.getElementById('dashRecentTasks');
+    const contentTotalEl = document.getElementById('contentTotal');
+    const contentDoingEl = document.getElementById('contentDoing');
+    const contentDoneEl = document.getElementById('contentDone');
+    const contentPipelineEl = document.getElementById('contentPipeline');
+    const contentLogsEl = document.getElementById('contentLogs');
+
 
     const activityFeedEl = document.getElementById('activityFeed');
     const taskStatsEl = document.getElementById('taskStats');
@@ -596,6 +612,59 @@
       if (dashRecentTasksEl) {
         dashRecentTasksEl.innerHTML = todoRows.slice(0,5).map(t => simpleListRow(t.title || 'Untitled task', `${(t.status||'N/A').replace('_',' ')} • ${formatDateTime(t.created_at)}`)).join('') || simpleListRow('No data yet','todos is empty');
       }
+    }
+
+
+    let contentInitialized = false;
+
+    async function loadContentData() {
+      if (!supabaseClient) {
+        if (contentPipelineEl) contentPipelineEl.innerHTML = simpleListRow('Supabase unavailable', 'CDN failed to load');
+        if (contentLogsEl) contentLogsEl.innerHTML = simpleListRow('Supabase unavailable', 'CDN failed to load');
+        return;
+      }
+
+      const [{ data: todos, error: todoErr }, { data: logs, error: logErr }] = await Promise.all([
+        supabaseClient.from('todos').select('id,title,category,priority,status,created_at').in('category', ['Marketing','Work']).order('created_at', { ascending: false }).limit(100),
+        supabaseClient.from('agent_logs').select('agent_name,task_description,status,created_at').order('created_at', { ascending: false }).limit(120)
+      ]);
+
+      if (todoErr || logErr) {
+        const msg = todoErr?.message || logErr?.message || 'Unknown error';
+        if (contentPipelineEl) contentPipelineEl.innerHTML = simpleListRow('Unable to load content data', msg);
+        if (contentLogsEl) contentLogsEl.innerHTML = simpleListRow('Unable to load content logs', msg);
+        return;
+      }
+
+      const t = todos || [];
+      const total = t.length;
+      const doing = t.filter(x => x.status === 'in_progress').length;
+      const done = t.filter(x => x.status === 'done').length;
+
+      if (contentTotalEl) contentTotalEl.textContent = String(total);
+      if (contentDoingEl) contentDoingEl.textContent = String(doing);
+      if (contentDoneEl) contentDoneEl.textContent = String(done);
+
+      if (contentPipelineEl) {
+        contentPipelineEl.innerHTML = t.slice(0,8).map(x => simpleListRow(x.title || 'Untitled', `${x.category || 'N/A'} • ${(x.status || 'N/A').replace('_',' ')} • ${formatDateTime(x.created_at)}`)).join('') || simpleListRow('No content tasks yet', 'Create tasks in todos table');
+      }
+
+      const contentNames = new Set(['Nami','Sanji','Luffy','Maya','Jordan','Sam']);
+      const l = (logs || []).map(r => ({...r, agent_name: normalizeAgentName(r.agent_name)})).filter(r => contentNames.has(r.agent_name));
+      if (contentLogsEl) {
+        contentLogsEl.innerHTML = l.slice(0,8).map(r => simpleListRow(r.task_description || 'No description', `${r.agent_name || 'Unknown'} • ${formatDateTime(r.created_at)}`)).join('') || simpleListRow('No content logs yet', 'Waiting for agent_logs entries');
+      }
+    }
+
+    function initContentRealtime() {
+      if (contentInitialized) return;
+      contentInitialized = true;
+      loadContentData();
+      supabaseClient && supabaseClient.channel('content-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, () => loadContentData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_logs' }, () => loadContentData())
+        .subscribe();
+      setInterval(loadContentData, 45000);
     }
 
     function initAgentsRealtime() {
@@ -895,6 +964,7 @@
       if (tabName === 'agents') initAgentsRealtime();
       if (tabName === 'tasks') initTasksRealtime();
       if (tabName === 'dashboard') loadDashboardData();
+      if (tabName === 'content') initContentRealtime();
     }
 
     buttons.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
@@ -904,6 +974,7 @@
     });
 
     loadDashboardData();
+    loadContentData();
     setInterval(loadDashboardData, 45000);
     activateTab('dashboard');
   </script>
