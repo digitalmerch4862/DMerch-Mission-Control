@@ -156,10 +156,44 @@
       </section>
 
       <section id="panel-tasks" class="tab-panel">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Tasks</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Tasks</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Tasks</h2></div>
+        <div class="glass-card p-3 md:p-4 mb-5 opacity-0 card-stagger">
+          <div class="flex flex-col xl:flex-row xl:items-center gap-3 xl:gap-4 min-h-[96px]">
+            <div class="w-full xl:w-auto flex items-center justify-center xl:justify-start">
+              <div class="w-[82px] h-[82px]">
+                <canvas id="tasksDonutChart" width="82" height="82"></canvas>
+              </div>
+            </div>
+            <div id="tasksCompactStats" class="grid grid-cols-3 gap-2 flex-1"></div>
+            <div class="xl:ml-auto">
+              <span id="tasksMotivationBadge" class="inline-flex items-center text-xs md:text-sm px-3 py-2 rounded-full border border-cyan-400/40 bg-cyan-500/10 text-cyan-200 shadow-[0_0_20px_rgba(6,182,212,0.25)]">Loading progress...</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <div class="glass-card p-4 opacity-0 card-stagger" data-column="todo">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-blue-300">To Do</h3>
+              <span id="todoCount" class="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-300">0</span>
+            </div>
+            <div id="todoColumn" class="space-y-3 min-h-[380px]"></div>
+          </div>
+
+          <div class="glass-card p-4 opacity-0 card-stagger" data-column="in_progress">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-amber-300">Doing</h3>
+              <span id="inProgressCount" class="text-xs px-2 py-1 rounded-full bg-amber-500/20 text-amber-300">0</span>
+            </div>
+            <div id="inProgressColumn" class="space-y-3 min-h-[380px]"></div>
+          </div>
+
+          <div class="glass-card p-4 opacity-0 card-stagger" data-column="done">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="font-semibold text-emerald-300">Done</h3>
+              <span id="doneCount" class="text-xs px-2 py-1 rounded-full bg-emerald-500/20 text-emerald-300">0</span>
+            </div>
+            <div id="doneColumn" class="space-y-3 min-h-[380px]"></div>
+          </div>
         </div>
       </section>
 
@@ -217,6 +251,17 @@
     const agentsLastSyncEl = document.getElementById('agentsLastSync');
 
     let agentsInitialized = false;
+    let tasksInitialized = false;
+    let tasksDonutChart = null;
+
+    const todoColumnEl = document.getElementById('todoColumn');
+    const inProgressColumnEl = document.getElementById('inProgressColumn');
+    const doneColumnEl = document.getElementById('doneColumn');
+    const todoCountEl = document.getElementById('todoCount');
+    const inProgressCountEl = document.getElementById('inProgressCount');
+    const doneCountEl = document.getElementById('doneCount');
+    const tasksCompactStatsEl = document.getElementById('tasksCompactStats');
+    const tasksMotivationBadgeEl = document.getElementById('tasksMotivationBadge');
 
     function movePillTo(button) {
       const navRect = nav.getBoundingClientRect();
@@ -436,6 +481,152 @@
       setInterval(loadAgentsData, 30000);
     }
 
+
+    function taskPriorityPill(priority) {
+      const p = (priority || 'N/A').toLowerCase();
+      if (p === 'high') return 'bg-red-500/20 text-red-300 border border-red-400/30';
+      if (p === 'medium') return 'bg-amber-500/20 text-amber-300 border border-amber-400/30';
+      if (p === 'low') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+      return 'bg-slate-500/20 text-slate-300 border border-slate-400/30';
+    }
+
+    function formatShortDate(value) {
+      if (!value) return 'N/A';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return 'N/A';
+      return d.toLocaleDateString();
+    }
+
+    function taskCardHTML(task) {
+      return `
+        <article class="bg-white/[0.03] border border-white/10 rounded-xl p-3 shadow-[0_8px_20px_rgba(0,0,0,0.22)] cursor-grab" draggable="true" data-task-id="${task.id}">
+          <p class="font-medium text-sm mb-2 break-words">${task.title || 'Untitled Task'}</p>
+          <div class="flex flex-wrap items-center gap-2 text-xs mb-2">
+            <span class="px-2 py-1 rounded border border-slate-500/30 bg-slate-500/15 text-slate-300">${task.category || 'N/A'}</span>
+            <span class="px-2 py-1 rounded ${taskPriorityPill(task.priority)}">${task.priority || 'N/A'}</span>
+            <span class="px-2 py-1 rounded border border-cyan-400/30 bg-cyan-500/10 text-cyan-300">${task.track_status || 'N/A'}</span>
+          </div>
+          <p class="text-xs text-slate-400">Due: <span class="text-slate-300">${formatShortDate(task.due_date)}</span></p>
+        </article>
+      `;
+    }
+
+    function emptyColumnHTML(msg) {
+      return `<div class="text-xs text-slate-500 border border-dashed border-white/10 rounded-lg p-4 text-center">${msg}</div>`;
+    }
+
+    function renderTasksColumns(rows) {
+      const todo = rows.filter(r => (r.status || 'todo') === 'todo');
+      const doing = rows.filter(r => r.status === 'in_progress');
+      const done = rows.filter(r => r.status === 'done');
+
+      todoColumnEl.innerHTML = todo.length ? todo.map(taskCardHTML).join('') : emptyColumnHTML('No tasks yet');
+      inProgressColumnEl.innerHTML = doing.length ? doing.map(taskCardHTML).join('') : emptyColumnHTML('No tasks in progress');
+      doneColumnEl.innerHTML = done.length ? done.map(taskCardHTML).join('') : emptyColumnHTML('No completed tasks yet');
+
+      todoCountEl.textContent = String(todo.length);
+      inProgressCountEl.textContent = String(doing.length);
+      doneCountEl.textContent = String(done.length);
+
+      bindTaskDnD();
+      updateProductivityBar(todo.length, doing.length, done.length);
+    }
+
+    function updateProductivityBar(todoCount, doingCount, doneCount) {
+      const total = todoCount + doingCount + doneCount;
+      const donePct = total ? (doneCount / total) * 100 : 0;
+
+      const cards = [
+        { label: 'To Do', count: todoCount, pct: total ? (todoCount / total) * 100 : 0, color: '#3B82F6' },
+        { label: 'Doing', count: doingCount, pct: total ? (doingCount / total) * 100 : 0, color: '#F59E0B' },
+        { label: 'Done', count: doneCount, pct: total ? (doneCount / total) * 100 : 0, color: '#10B981' }
+      ];
+
+      tasksCompactStatsEl.innerHTML = cards.map(c => `
+        <div class="rounded-xl border p-2 bg-white/[0.03]" style="border-color:${c.color}66; box-shadow:0 0 16px ${c.color}22;">
+          <p class="text-[11px] text-slate-400 uppercase tracking-wide">${c.label}</p>
+          <p class="text-base font-semibold" style="color:${c.color}">${c.count}</p>
+          <p class="text-[11px] text-slate-400">${c.pct.toFixed(0)}%</p>
+        </div>
+      `).join('');
+
+      let message = "Just getting started — let's go! 🚀";
+      if (donePct > 90) message = 'Outstanding — you crushed it! 🏆';
+      else if (donePct > 60) message = 'Almost there — finish strong! 🔥';
+      else if (donePct > 30) message = 'Good progress — keep pushing! 💪';
+      tasksMotivationBadgeEl.textContent = message;
+
+      const ctx = document.getElementById('tasksDonutChart');
+      if (!ctx) return;
+      if (tasksDonutChart) tasksDonutChart.destroy();
+      tasksDonutChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['To Do', 'Doing', 'Done'],
+          datasets: [{ data: [todoCount, doingCount, doneCount], backgroundColor: ['#3B82F6','#F59E0B','#10B981'], borderWidth: 0 }]
+        },
+        options: { cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: true } }, responsive: true, maintainAspectRatio: false }
+      });
+    }
+
+    async function loadTasksData() {
+      const { data, error } = await supabaseClient
+        .from('todos')
+        .select('id, title, category, priority, due_date, completed, status, track_status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+
+      if (error) {
+        todoColumnEl.innerHTML = emptyColumnHTML(`Unable to fetch todos: ${error.message || 'Unknown error'}`);
+        inProgressColumnEl.innerHTML = emptyColumnHTML('');
+        doneColumnEl.innerHTML = emptyColumnHTML('');
+        return;
+      }
+
+      renderTasksColumns(data || []);
+      staggerIn(document.getElementById('panel-tasks'));
+    }
+
+    function bindTaskDnD() {
+      const draggable = document.querySelectorAll('[data-task-id]');
+      draggable.forEach(el => {
+        el.addEventListener('dragstart', e => {
+          e.dataTransfer.setData('text/plain', el.dataset.taskId);
+          e.dataTransfer.effectAllowed = 'move';
+        });
+      });
+
+      const columns = [
+        { key: 'todo', el: todoColumnEl },
+        { key: 'in_progress', el: inProgressColumnEl },
+        { key: 'done', el: doneColumnEl }
+      ];
+
+      columns.forEach(col => {
+        col.el.addEventListener('dragover', e => { e.preventDefault(); col.el.classList.add('ring-2','ring-cyan-400/40'); });
+        col.el.addEventListener('dragleave', () => col.el.classList.remove('ring-2','ring-cyan-400/40'));
+        col.el.addEventListener('drop', async e => {
+          e.preventDefault();
+          col.el.classList.remove('ring-2','ring-cyan-400/40');
+          const taskId = e.dataTransfer.getData('text/plain');
+          if (!taskId) return;
+          const updates = { status: col.key, completed: col.key === 'done' };
+          const { error } = await supabaseClient.from('todos').update(updates).eq('id', taskId);
+          if (!error) loadTasksData();
+        });
+      });
+    }
+
+    function initTasksRealtime() {
+      if (tasksInitialized) return;
+      tasksInitialized = true;
+      loadTasksData();
+      supabaseClient.channel('todos-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, () => loadTasksData())
+        .subscribe();
+      setInterval(loadTasksData, 30000);
+    }
+
     function activateTab(tabName) {
       buttons.forEach(btn => {
         const active = btn.dataset.tab === tabName;
@@ -451,6 +642,7 @@
       staggerIn(activePanel);
 
       if (tabName === 'agents') initAgentsRealtime();
+      if (tabName === 'tasks') initTasksRealtime();
     }
 
     buttons.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
