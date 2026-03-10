@@ -577,7 +577,7 @@
 
     function taskCardHTML(task) {
       return `
-        <article class="task-card" draggable="true" data-task-id="${task.id}" data-task='${JSON.stringify(task).replaceAll("'", "&#39;")}'>
+        <article class="task-card" draggable="true" data-task-id="${task.id}">
           <div class="flex items-start justify-between gap-2 mb-2">
             <div class="flex items-start gap-2 flex-1">
               <span class="w-4 h-4 mt-[2px] rounded-full border border-slate-400/60"></span>
@@ -613,6 +613,8 @@
 
     function renderTasksColumns(rows) {
       const filtered = filteredRows(rows);
+      Object.keys(tasksById).forEach(k => delete tasksById[k]);
+      rows.forEach(r => { tasksById[String(r.id)] = r; });
       const todo = filtered.filter(r => (r.status || 'todo') === 'todo');
       const doing = filtered.filter(r => r.status === 'in_progress');
       const done = filtered.filter(r => r.status === 'done');
@@ -647,6 +649,7 @@
     }
 
     let tasksCache = [];
+    const tasksById = {};
 
     async function loadTasksData() {
       const { data, error } = await supabaseClient.from('todos').select('id, title, category, priority, due_date, completed, status, track_status, created_at').order('created_at', { ascending: false }).limit(2000);
@@ -739,9 +742,8 @@
       document.querySelectorAll('[data-edit]').forEach(btn => {
         btn.onclick = () => {
           const id = btn.dataset.edit;
-          const card = document.querySelector(`[data-task-id="${id}"]`);
-          if (!card) return;
-          const task = JSON.parse(card.dataset.task.replaceAll('&#39;', "'"));
+          const task = tasksById[String(id)];
+          if (!task) return;
           openEditModal(task);
         };
       });
