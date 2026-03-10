@@ -128,7 +128,7 @@
           </div>
         </div>
 
-        <div id="agentsCards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-6"></div>
+        <div id="agentsCards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-6"></div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6" id="taskStats"></div>
 
@@ -185,6 +185,25 @@
       { name: 'Zoro', emoji: '💻', role: 'Full Stack Developer', color: '#10B981' },
       { name: 'Luffy', emoji: '📱', role: 'Social Media Manager', color: '#EC4899' }
     ];
+
+    const AGENT_NAME_ALIASES = {
+      'alex': 'Kristel',
+      'maya': 'Nami',
+      'jordan': 'Sanji',
+      'dev': 'Zoro',
+      'sam': 'Luffy',
+      'kristel': 'Kristel',
+      'nami': 'Nami',
+      'sanji': 'Sanji',
+      'zoro': 'Zoro',
+      'luffy': 'Luffy'
+    };
+
+    function normalizeAgentName(raw) {
+      if (!raw) return '';
+      const key = String(raw).trim().toLowerCase();
+      return AGENT_NAME_ALIASES[key] || String(raw).trim();
+    }
 
     const nav = document.getElementById('tabsNav');
     const pill = document.getElementById('tabPill');
@@ -371,15 +390,15 @@
         .from('agent_logs')
         .select('agent_name, task_description, model_used, status, created_at')
         .order('created_at', { ascending: false })
-        .limit(1000);
+        .limit(5000);
 
       if (error) {
         agentsLastSyncEl.textContent = 'Sync failed';
-        renderEmptyState('Unable to fetch agent logs right now.');
+        renderEmptyState(`Unable to fetch agent logs right now: ${error.message || 'Unknown error'}`);
         return;
       }
 
-      const rows = data || [];
+      const rows = (data || []).map(r => ({ ...r, agent_name: normalizeAgentName(r.agent_name) }));
       const todayStart = startOfToday();
       const latestByAgent = {};
       const todayCountByAgent = {};
