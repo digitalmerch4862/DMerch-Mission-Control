@@ -4,31 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agent OS Dashboard</title>
-
-  <!-- Google Font -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <!-- Tailwind CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
-
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: {
-            sans: ['Inter', 'system-ui', 'sans-serif']
-          },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
           colors: {
-            base: '#0A0F1E',
-            purpleGlow: '#7C3AED',
-            pinkGlow: '#EC4899',
-            cyanGlow: '#06B6D4',
-            amberGlow: '#F59E0B'
-          },
-          boxShadow: {
-            softGlow: '0 10px 40px rgba(124,58,237,0.22), 0 0 0 1px rgba(255,255,255,0.04)'
+            base: '#0A0F1E', purpleGlow: '#7C3AED', pinkGlow: '#EC4899', cyanGlow: '#06B6D4', amberGlow: '#F59E0B'
           },
           keyframes: {
             cardIn: {
@@ -48,78 +34,54 @@
       }
     }
   </script>
-
-  <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Supabase JS SDK CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
-    :root {
-      color-scheme: dark;
-    }
-
+    :root { color-scheme: dark; }
     body {
       background:
-        radial-gradient(1200px 600px at -10% -20%, rgba(124, 58, 237, 0.22), transparent 60%),
-        radial-gradient(1000px 500px at 110% -30%, rgba(236, 72, 153, 0.18), transparent 60%),
-        radial-gradient(900px 500px at 50% 120%, rgba(6, 182, 212, 0.10), transparent 65%),
+        radial-gradient(1200px 600px at -10% -20%, rgba(124,58,237,0.22), transparent 60%),
+        radial-gradient(1000px 500px at 110% -30%, rgba(236,72,153,0.18), transparent 60%),
+        radial-gradient(900px 500px at 50% 120%, rgba(6,182,212,0.10), transparent 65%),
         #0A0F1E;
       min-height: 100vh;
     }
-
     .glass-card {
       position: relative;
       border-radius: 1rem;
       border: 1px solid transparent;
       background:
-        linear-gradient(145deg, rgba(12, 20, 40, 0.85), rgba(14, 16, 32, 0.72)) padding-box,
-        linear-gradient(135deg, rgba(124, 58, 237, 0.9), rgba(236, 72, 153, 0.85), rgba(6, 182, 212, 0.8)) border-box;
+        linear-gradient(145deg, rgba(12,20,40,0.85), rgba(14,16,32,0.72)) padding-box,
+        linear-gradient(135deg, rgba(124,58,237,0.9), rgba(236,72,153,0.85), rgba(6,182,212,0.8)) border-box;
       backdrop-filter: blur(14px);
       -webkit-backdrop-filter: blur(14px);
-      box-shadow: 0 10px 40px rgba(124, 58, 237, 0.2), inset 0 1px 0 rgba(255,255,255,0.04);
+      box-shadow: 0 10px 40px rgba(124,58,237,0.2), inset 0 1px 0 rgba(255,255,255,0.04);
     }
-
+    .agent-card {
+      border-left-width: 3px;
+      border-left-style: solid;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.04), 0 10px 30px rgba(0,0,0,0.28);
+    }
     .tab-pill {
-      position: absolute;
-      top: 4px;
-      left: 4px;
-      height: calc(100% - 8px);
-      border-radius: 999px;
+      position: absolute; top: 4px; left: 4px; height: calc(100% - 8px); border-radius: 999px;
       background: linear-gradient(90deg, rgba(124,58,237,0.95), rgba(236,72,153,0.95));
       box-shadow: 0 8px 28px rgba(124,58,237,0.45), 0 2px 10px rgba(236,72,153,0.35);
-      transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1), width 300ms cubic-bezier(0.22, 1, 0.36, 1);
+      transition: transform 300ms cubic-bezier(0.22,1,0.36,1), width 300ms cubic-bezier(0.22,1,0.36,1);
       z-index: 0;
     }
-
-    .tab-btn {
-      position: relative;
-      z-index: 1;
-      transition: color 200ms ease;
-    }
-
-    .tab-panel {
-      display: none;
-      opacity: 0;
-    }
-
-    .tab-panel.active {
-      display: block;
-      animation: tabFadeIn 260ms ease-out forwards;
-    }
+    .tab-btn { position: relative; z-index: 1; transition: color 200ms ease; }
+    .tab-panel { display: none; opacity: 0; }
+    .tab-panel.active { display: block; animation: tabFadeIn 260ms ease-out forwards; }
   </style>
 </head>
 <body class="font-sans text-slate-100">
   <div class="max-w-7xl mx-auto px-6 py-8 md:py-10">
-    <!-- Top Nav -->
     <header class="glass-card p-3 md:p-4 mb-8">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <p class="text-xs uppercase tracking-[0.25em] text-cyanGlow/80">Agent OS</p>
           <h1 class="text-xl md:text-2xl font-semibold">Control Dashboard</h1>
         </div>
-
         <nav id="tabsNav" class="relative inline-flex bg-white/5 rounded-full p-1 border border-white/10 overflow-hidden">
           <div id="tabPill" class="tab-pill"></div>
           <button class="tab-btn px-4 py-2 text-sm font-medium rounded-full text-white" data-tab="dashboard">Dashboard</button>
@@ -131,7 +93,6 @@
       </div>
     </header>
 
-    <!-- Tab Panels -->
     <main id="tabPanels" class="space-y-6">
       <section id="panel-dashboard" class="tab-panel active">
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -150,10 +111,37 @@
       </section>
 
       <section id="panel-agents" class="tab-panel">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Agents</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Agents</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Agents</h2></div>
+        <div class="glass-card p-4 md:p-5 mb-6 opacity-0 card-stagger">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="text-lg font-semibold">Agents Overview</h2>
+            <span id="agentsLastSync" class="text-xs text-slate-400">Syncing...</span>
+          </div>
+        </div>
+
+        <div id="agentsCards" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-6"></div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6" id="taskStats"></div>
+
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-6">
+          <div class="xl:col-span-3 glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-4">Recent Activity</h3>
+            <div id="activityFeed" class="space-y-3 max-h-[440px] overflow-y-auto pr-1"></div>
+          </div>
+          <div class="xl:col-span-2 glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-4">Model Usage Tracker</h3>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-slate-400 border-b border-white/10">
+                    <th class="text-left py-2 font-medium">Agent</th>
+                    <th class="text-left py-2 font-medium">Model</th>
+                    <th class="text-right py-2 font-medium">Tasks Today</th>
+                  </tr>
+                </thead>
+                <tbody id="modelUsageRows"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -180,10 +168,26 @@
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0aGtmdGJkZXBudWpwYnhuaXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzgzNzcsImV4cCI6MjA4ODcxNDM3N30.cW1bRz4gqe5DcT47bj4XjXXJ9NSIlMFzGtRAikC7Rm4';
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    const AGENTS = [
+      { name: 'Alex', emoji: '🧠', role: 'Research Analyst', color: '#3B82F6' },
+      { name: 'Maya', emoji: '✍️', role: 'Content Writer', color: '#7C3AED' },
+      { name: 'Jordan', emoji: '📈', role: 'Marketing Strategist', color: '#F59E0B' },
+      { name: 'Dev', emoji: '💻', role: 'Full Stack Developer', color: '#10B981' },
+      { name: 'Sam', emoji: '📱', role: 'Social Media Manager', color: '#EC4899' }
+    ];
+
     const nav = document.getElementById('tabsNav');
     const pill = document.getElementById('tabPill');
     const buttons = [...nav.querySelectorAll('.tab-btn')];
     const panels = [...document.querySelectorAll('.tab-panel')];
+
+    const agentsCardsEl = document.getElementById('agentsCards');
+    const activityFeedEl = document.getElementById('activityFeed');
+    const taskStatsEl = document.getElementById('taskStats');
+    const modelUsageRowsEl = document.getElementById('modelUsageRows');
+    const agentsLastSyncEl = document.getElementById('agentsLastSync');
+
+    let agentsInitialized = false;
 
     function movePillTo(button) {
       const navRect = nav.getBoundingClientRect();
@@ -197,10 +201,210 @@
       cards.forEach((card, idx) => {
         card.style.animation = 'none';
         card.style.opacity = '0';
-        setTimeout(() => {
-          card.style.animation = 'cardIn 560ms cubic-bezier(0.22,1,0.36,1) forwards';
-        }, idx * 90);
+        setTimeout(() => { card.style.animation = 'cardIn 560ms cubic-bezier(0.22,1,0.36,1) forwards'; }, idx * 90);
       });
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'N/A';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleString();
+    }
+
+    function startOfToday() {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    function startOfWeek() {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = day === 0 ? 6 : day - 1;
+      d.setDate(d.getDate() - diff);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    function statusClass(status) {
+      const s = (status || '').toLowerCase();
+      if (s === 'completed') return 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+      if (s === 'failed') return 'bg-red-500/20 text-red-300 border border-red-400/30';
+      return 'bg-slate-500/20 text-slate-300 border border-slate-400/30';
+    }
+
+    function renderEmptyState(message) {
+      const block = `<div class="text-sm text-slate-400 border border-white/10 rounded-lg p-3">${message}</div>`;
+      activityFeedEl.innerHTML = block;
+    }
+
+    function renderAgentCards(latestByAgent, todayCountByAgent) {
+      agentsCardsEl.innerHTML = AGENTS.map(agent => {
+        const latest = latestByAgent[agent.name] || null;
+        const model = latest?.model_used || 'N/A';
+        const lastTask = latest?.task_description || 'No data yet';
+        const lastActive = latest?.created_at ? formatDateTime(latest.created_at) : 'N/A';
+        const tasksToday = todayCountByAgent[agent.name] || 0;
+
+        return `
+          <div class="glass-card agent-card p-5 opacity-0 card-stagger" style="border-left-color:${agent.color}; box-shadow: 0 0 28px ${agent.color}22;">
+            <div class="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h3 class="text-lg font-bold">${agent.emoji} ${agent.name}</h3>
+                <p class="text-xs text-slate-400">${agent.role}</p>
+              </div>
+              <div class="inline-flex items-center gap-2 text-xs bg-emerald-500/15 text-emerald-300 px-2 py-1 rounded-full border border-emerald-400/25">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                Connected
+              </div>
+            </div>
+            <div class="space-y-2 text-sm">
+              <p><span class="text-slate-400">Model:</span> <span class="text-slate-100">${model}</span></p>
+              <p><span class="text-slate-400">Last task:</span> <span class="text-slate-100">${lastTask}</span></p>
+              <p><span class="text-slate-400">Last active:</span> <span class="text-slate-100">${lastActive}</span></p>
+              <p><span class="text-slate-400">Tasks today:</span> <span class="text-slate-100">${tasksToday}</span></p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderActivityFeed(rows) {
+      if (!rows.length) {
+        renderEmptyState('No data yet. Activity feed will populate after agents write logs.');
+        return;
+      }
+
+      activityFeedEl.innerHTML = rows.map(row => {
+        const agent = AGENTS.find(a => a.name === row.agent_name);
+        const color = agent?.color || '#64748B';
+        const badge = row.agent_name || 'Unknown';
+        const status = row.status || 'N/A';
+        return `
+          <div class="bg-white/[0.03] border border-white/10 rounded-lg p-3" style="border-left:3px solid ${color}">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-xs font-semibold px-2 py-1 rounded-full" style="background:${color}22; color:${color}; border:1px solid ${color}66;">${badge}</span>
+              <span class="text-xs text-slate-400">${formatDateTime(row.created_at)}</span>
+            </div>
+            <p class="text-sm text-slate-100 mb-2">${row.task_description || 'No data yet'}</p>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="bg-slate-700/40 text-slate-300 px-2 py-1 rounded border border-slate-600/40">${row.model_used || 'N/A'}</span>
+              <span class="px-2 py-1 rounded ${statusClass(status)}">${status}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderTaskStats(rows, todayCountByAgent) {
+      const todayStart = startOfToday();
+      const weekStart = startOfWeek();
+
+      let totalToday = 0;
+      let totalWeek = 0;
+      let completedToday = 0;
+
+      for (const row of rows) {
+        const d = new Date(row.created_at);
+        if (Number.isNaN(d.getTime())) continue;
+
+        if (d >= weekStart) totalWeek += 1;
+        if (d >= todayStart) {
+          totalToday += 1;
+          if ((row.status || '').toLowerCase() === 'completed') completedToday += 1;
+        }
+      }
+
+      const mostActive = AGENTS.map(a => ({ name: a.name, count: todayCountByAgent[a.name] || 0 }))
+        .sort((a, b) => b.count - a.count)[0];
+      const mostActiveText = mostActive && mostActive.count > 0 ? `${mostActive.name} (${mostActive.count})` : 'N/A';
+      const successRate = totalToday > 0 ? `${((completedToday / totalToday) * 100).toFixed(1)}%` : 'N/A';
+
+      const stats = [
+        { label: 'Total Tasks Today', value: String(totalToday), glow: '#06B6D4' },
+        { label: 'Total Tasks This Week', value: String(totalWeek), glow: '#7C3AED' },
+        { label: 'Most Active Agent', value: mostActiveText, glow: '#F59E0B' },
+        { label: 'Success Rate', value: successRate, glow: '#10B981' }
+      ];
+
+      taskStatsEl.innerHTML = stats.map(s => `
+        <div class="glass-card p-4 opacity-0 card-stagger" style="box-shadow: 0 0 24px ${s.glow}22;">
+          <p class="text-xs uppercase tracking-wide text-slate-400 mb-1">${s.label}</p>
+          <p class="text-lg font-semibold">${s.value}</p>
+        </div>
+      `).join('');
+    }
+
+    function renderModelUsage(latestByAgent, todayCountByAgent) {
+      modelUsageRowsEl.innerHTML = AGENTS.map(agent => {
+        const latest = latestByAgent[agent.name] || null;
+        const model = latest?.model_used || 'N/A';
+        const tasks = todayCountByAgent[agent.name] || 0;
+        return `
+          <tr class="border-b border-white/10">
+            <td class="py-2">
+              <span class="inline-flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full" style="background:${agent.color}"></span>
+                ${agent.name}
+              </span>
+            </td>
+            <td class="py-2 text-slate-300">${model}</td>
+            <td class="py-2 text-right text-slate-100">${tasks}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function loadAgentsData() {
+      const { data, error } = await supabaseClient
+        .from('agent_logs')
+        .select('agent_name, task_description, model_used, status, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1000);
+
+      if (error) {
+        agentsLastSyncEl.textContent = 'Sync failed';
+        renderEmptyState('Unable to fetch agent logs right now.');
+        return;
+      }
+
+      const rows = data || [];
+      const todayStart = startOfToday();
+      const latestByAgent = {};
+      const todayCountByAgent = {};
+      AGENTS.forEach(a => { todayCountByAgent[a.name] = 0; });
+
+      for (const row of rows) {
+        const name = row.agent_name;
+        if (AGENTS.some(a => a.name === name) && !latestByAgent[name]) latestByAgent[name] = row;
+        if (AGENTS.some(a => a.name === name)) {
+          const d = new Date(row.created_at);
+          if (!Number.isNaN(d.getTime()) && d >= todayStart) todayCountByAgent[name] += 1;
+        }
+      }
+
+      renderAgentCards(latestByAgent, todayCountByAgent);
+      renderActivityFeed(rows.slice(0, 50));
+      renderTaskStats(rows, todayCountByAgent);
+      renderModelUsage(latestByAgent, todayCountByAgent);
+
+      const panel = document.getElementById('panel-agents');
+      staggerIn(panel);
+      agentsLastSyncEl.textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
+    }
+
+    function initAgentsRealtime() {
+      if (agentsInitialized) return;
+      agentsInitialized = true;
+
+      loadAgentsData();
+
+      supabaseClient.channel('agent-logs-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_logs' }, () => loadAgentsData())
+        .subscribe();
+
+      setInterval(loadAgentsData, 30000);
     }
 
     function activateTab(tabName) {
@@ -210,27 +414,22 @@
         btn.classList.toggle('text-slate-300', !active);
       });
 
-      panels.forEach(panel => {
-        const active = panel.id === `panel-${tabName}`;
-        panel.classList.toggle('active', active);
-      });
+      panels.forEach(panel => panel.classList.toggle('active', panel.id === `panel-${tabName}`));
 
       const activeBtn = buttons.find(btn => btn.dataset.tab === tabName);
       const activePanel = document.getElementById(`panel-${tabName}`);
       movePillTo(activeBtn);
       staggerIn(activePanel);
+
+      if (tabName === 'agents') initAgentsRealtime();
     }
 
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => activateTab(btn.dataset.tab));
-    });
-
+    buttons.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
     window.addEventListener('resize', () => {
       const activeBtn = buttons.find(btn => btn.classList.contains('text-white'));
       if (activeBtn) movePillTo(activeBtn);
     });
 
-    // Initial render
     activateTab('dashboard');
   </script>
 </body>
