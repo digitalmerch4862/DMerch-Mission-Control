@@ -276,10 +276,31 @@
       </section>
 
       <section id="panel-settings" class="tab-panel">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Settings</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Settings</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Settings</h2></div>
+        <div class="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <div class="glass-card p-5 opacity-0 card-stagger xl:col-span-2">
+            <h3 class="text-lg font-semibold mb-4">System Configuration</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <div class="rounded-lg border border-white/10 p-3 bg-white/[0.02]"><p class="text-slate-400 text-xs">Supabase URL</p><p id="settingsSupabaseUrl" class="break-all">-</p></div>
+              <div class="rounded-lg border border-white/10 p-3 bg-white/[0.02]"><p class="text-slate-400 text-xs">Anon Key (masked)</p><p id="settingsAnonMasked">-</p></div>
+              <div class="rounded-lg border border-white/10 p-3 bg-white/[0.02]"><p class="text-slate-400 text-xs">Agents Configured</p><p id="settingsAgentsCount">-</p></div>
+              <div class="rounded-lg border border-white/10 p-3 bg-white/[0.02]"><p class="text-slate-400 text-xs">Last Sync</p><p id="settingsLastSync">-</p></div>
+            </div>
+          </div>
+
+          <div class="glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-4">Service Health</h3>
+            <div class="space-y-2 text-sm" id="settingsHealthList"></div>
+          </div>
+        </div>
+
+        <div class="glass-card p-5 mt-5 opacity-0 card-stagger">
+          <h3 class="text-lg font-semibold mb-3">Live Counters</h3>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div class="rounded-lg border border-cyan-400/30 p-3 bg-cyan-500/10"><p class="text-xs text-slate-300">Agent Logs</p><p id="settingsLogsCount" class="text-xl font-semibold text-cyan-200">-</p></div>
+            <div class="rounded-lg border border-amber-400/30 p-3 bg-amber-500/10"><p class="text-xs text-slate-300">Todos</p><p id="settingsTodosCount" class="text-xl font-semibold text-amber-200">-</p></div>
+            <div class="rounded-lg border border-emerald-400/30 p-3 bg-emerald-500/10"><p class="text-xs text-slate-300">Completed Todos</p><p id="settingsCompletedCount" class="text-xl font-semibold text-emerald-200">-</p></div>
+            <div class="rounded-lg border border-purple-400/30 p-3 bg-purple-500/10"><p class="text-xs text-slate-300">Realtime</p><p id="settingsRealtimeState" class="text-xl font-semibold text-purple-200">-</p></div>
+          </div>
         </div>
       </section>
     </main>
@@ -334,6 +355,16 @@
     const contentDoneEl = document.getElementById('contentDone');
     const contentPipelineEl = document.getElementById('contentPipeline');
     const contentLogsEl = document.getElementById('contentLogs');
+    const settingsSupabaseUrlEl = document.getElementById('settingsSupabaseUrl');
+    const settingsAnonMaskedEl = document.getElementById('settingsAnonMasked');
+    const settingsAgentsCountEl = document.getElementById('settingsAgentsCount');
+    const settingsLastSyncEl = document.getElementById('settingsLastSync');
+    const settingsHealthListEl = document.getElementById('settingsHealthList');
+    const settingsLogsCountEl = document.getElementById('settingsLogsCount');
+    const settingsTodosCountEl = document.getElementById('settingsTodosCount');
+    const settingsCompletedCountEl = document.getElementById('settingsCompletedCount');
+    const settingsRealtimeStateEl = document.getElementById('settingsRealtimeState');
+
 
 
     const activityFeedEl = document.getElementById('activityFeed');
@@ -667,6 +698,64 @@
       setInterval(loadContentData, 45000);
     }
 
+
+    let settingsInitialized = false;
+
+    function maskAnonKey(key) {
+      if (!key) return 'N/A';
+      if (key.length < 12) return '***';
+      return `${key.slice(0, 8)}...${key.slice(-6)}`;
+    }
+
+    function healthRow(label, ok, detail) {
+      const color = ok ? 'text-emerald-300' : 'text-red-300';
+      const dot = ok ? 'bg-emerald-400' : 'bg-red-400';
+      return `<div class="rounded-lg border border-white/10 p-2 bg-white/[0.02] flex items-center justify-between"><div><p class="text-slate-100">${label}</p><p class="text-xs text-slate-400">${detail}</p></div><div class="inline-flex items-center gap-2 ${color}"><span class="w-2 h-2 rounded-full ${dot}"></span>${ok ? 'OK' : 'Issue'}</div></div>`;
+    }
+
+    async function loadSettingsData() {
+      if (settingsSupabaseUrlEl) settingsSupabaseUrlEl.textContent = SUPABASE_URL;
+      if (settingsAnonMaskedEl) settingsAnonMaskedEl.textContent = maskAnonKey(SUPABASE_ANON_KEY);
+      if (settingsAgentsCountEl) settingsAgentsCountEl.textContent = String(AGENTS.length);
+      if (settingsLastSyncEl) settingsLastSyncEl.textContent = new Date().toLocaleString();
+
+      if (!supabaseClient) {
+        settingsHealthListEl.innerHTML = healthRow('Supabase SDK','', 'Failed to load from CDN');
+        settingsRealtimeStateEl.textContent = 'OFF';
+        return;
+      }
+
+      const [{ count: logsCount, error: logsErr }, { count: todosCount, error: todosErr }, { count: completedCount, error: compErr }] = await Promise.all([
+        supabaseClient.from('agent_logs').select('*', { count: 'exact', head: true }),
+        supabaseClient.from('todos').select('*', { count: 'exact', head: true }),
+        supabaseClient.from('todos').select('*', { count: 'exact', head: true }).eq('status', 'done')
+      ]);
+
+      if (settingsLogsCountEl) settingsLogsCountEl.textContent = logsErr ? 'ERR' : String(logsCount ?? 0);
+      if (settingsTodosCountEl) settingsTodosCountEl.textContent = todosErr ? 'ERR' : String(todosCount ?? 0);
+      if (settingsCompletedCountEl) settingsCompletedCountEl.textContent = compErr ? 'ERR' : String(completedCount ?? 0);
+      if (settingsRealtimeStateEl) settingsRealtimeStateEl.textContent = (logsErr || todosErr || compErr) ? 'DEGRADED' : 'ON';
+
+      if (settingsHealthListEl) {
+        settingsHealthListEl.innerHTML = [
+          healthRow('Supabase Connectivity', !(logsErr || todosErr), (logsErr || todosErr)?.message || 'Connection established'),
+          healthRow('Agent Logs Table', !logsErr, logsErr?.message || `${logsCount ?? 0} records`),
+          healthRow('Todos Table', !todosErr, todosErr?.message || `${todosCount ?? 0} records`)
+        ].join('');
+      }
+    }
+
+    function initSettingsRealtime() {
+      if (settingsInitialized) return;
+      settingsInitialized = true;
+      loadSettingsData();
+      supabaseClient && supabaseClient.channel('settings-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_logs' }, () => loadSettingsData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' }, () => loadSettingsData())
+        .subscribe();
+      setInterval(loadSettingsData, 45000);
+    }
+
     function initAgentsRealtime() {
       if (agentsInitialized) return;
       agentsInitialized = true;
@@ -965,6 +1054,7 @@
       if (tabName === 'tasks') initTasksRealtime();
       if (tabName === 'dashboard') loadDashboardData();
       if (tabName === 'content') initContentRealtime();
+      if (tabName === 'settings') initSettingsRealtime();
     }
 
     buttons.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
@@ -975,6 +1065,7 @@
 
     loadDashboardData();
     loadContentData();
+    loadSettingsData();
     setInterval(loadDashboardData, 45000);
     activateTab('dashboard');
   </script>
