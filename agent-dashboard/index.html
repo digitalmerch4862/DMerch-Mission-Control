@@ -117,10 +117,21 @@
 
     <main id="tabPanels" class="space-y-6">
       <section id="panel-dashboard" class="tab-panel active">
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Dashboard</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Dashboard</h2></div>
-          <div class="glass-card p-6 opacity-0 card-stagger"><h2 class="text-lg font-semibold">Dashboard</h2></div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5" id="dashboardTopStats">
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">Agents Online</p><p id="dashAgentsOnline" class="text-2xl font-semibold">-</p></div>
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">Tasks Today</p><p id="dashTasksToday" class="text-2xl font-semibold">-</p></div>
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">Tasks Done</p><p id="dashTasksDone" class="text-2xl font-semibold text-emerald-300">-</p></div>
+          <div class="glass-card p-4 opacity-0 card-stagger"><p class="text-xs text-slate-400">Success Rate</p><p id="dashSuccessRate" class="text-2xl font-semibold text-cyan-300">-</p></div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          <div class="glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-3">Latest Agent Activity</h3>
+            <div id="dashRecentAgents" class="space-y-2"></div>
+          </div>
+          <div class="glass-card p-5 opacity-0 card-stagger">
+            <h3 class="text-lg font-semibold mb-3">Recent Tasks</h3>
+            <div id="dashRecentTasks" class="space-y-2"></div>
+          </div>
         </div>
       </section>
 
@@ -302,6 +313,13 @@
     const panels = [...document.querySelectorAll('.tab-panel')];
 
     const agentsCardsEl = document.getElementById('agentsCards');
+    const dashAgentsOnlineEl = document.getElementById('dashAgentsOnline');
+    const dashTasksTodayEl = document.getElementById('dashTasksToday');
+    const dashTasksDoneEl = document.getElementById('dashTasksDone');
+    const dashSuccessRateEl = document.getElementById('dashSuccessRate');
+    const dashRecentAgentsEl = document.getElementById('dashRecentAgents');
+    const dashRecentTasksEl = document.getElementById('dashRecentTasks');
+
     const activityFeedEl = document.getElementById('activityFeed');
     const taskStatsEl = document.getElementById('taskStats');
     const modelUsageRowsEl = document.getElementById('modelUsageRows');
@@ -531,6 +549,53 @@
       const panel = document.getElementById('panel-agents');
       staggerIn(panel);
       agentsLastSyncEl.textContent = `Last sync: ${new Date().toLocaleTimeString()}`;
+    }
+
+
+    function simpleListRow(title, meta) {
+      return `<div class="text-sm border border-white/10 rounded-lg p-2 bg-white/[0.02]"><p class="text-slate-100">${title}</p><p class="text-xs text-slate-400">${meta}</p></div>`;
+    }
+
+    async function loadDashboardData() {
+      if (!supabaseClient) {
+        if (dashRecentAgentsEl) dashRecentAgentsEl.innerHTML = simpleListRow('Supabase unavailable', 'CDN failed to load');
+        if (dashRecentTasksEl) dashRecentTasksEl.innerHTML = simpleListRow('Supabase unavailable', 'CDN failed to load');
+        return;
+      }
+
+      const today = new Date(); today.setHours(0,0,0,0);
+
+      const [{ data: logs, error: logErr }, { data: todos, error: todoErr }] = await Promise.all([
+        supabaseClient.from('agent_logs').select('agent_name,status,task_description,created_at').order('created_at', { ascending:false }).limit(50),
+        supabaseClient.from('todos').select('title,status,created_at').order('created_at', { ascending:false }).limit(100)
+      ]);
+
+      if (logErr || todoErr) {
+        if (dashRecentAgentsEl) dashRecentAgentsEl.innerHTML = simpleListRow('Unable to load dashboard', (logErr?.message || todoErr?.message || 'Unknown error'));
+        if (dashRecentTasksEl) dashRecentTasksEl.innerHTML = simpleListRow('Unable to load dashboard', 'Check Supabase policies');
+        return;
+      }
+
+      const logRows = (logs || []).map(r => ({...r, agent_name: normalizeAgentName(r.agent_name)}));
+      const todoRows = todos || [];
+
+      const onlineAgents = new Set(logRows.map(r => r.agent_name).filter(Boolean));
+      const tasksToday = todoRows.filter(t => { const d = new Date(t.created_at); return !Number.isNaN(d) && d >= today; }).length;
+      const tasksDone = todoRows.filter(t => (t.status||'').toLowerCase() === 'done').length;
+      const completedLogs = logRows.filter(r => (r.status||'').toLowerCase() === 'completed').length;
+      const successRate = logRows.length ? ((completedLogs / logRows.length)*100).toFixed(1)+'%' : 'N/A';
+
+      if (dashAgentsOnlineEl) dashAgentsOnlineEl.textContent = String(onlineAgents.size || 0);
+      if (dashTasksTodayEl) dashTasksTodayEl.textContent = String(tasksToday);
+      if (dashTasksDoneEl) dashTasksDoneEl.textContent = String(tasksDone);
+      if (dashSuccessRateEl) dashSuccessRateEl.textContent = successRate;
+
+      if (dashRecentAgentsEl) {
+        dashRecentAgentsEl.innerHTML = logRows.slice(0,5).map(r => simpleListRow(r.task_description || 'No task description', `${r.agent_name || 'Unknown'} • ${formatDateTime(r.created_at)}`)).join('') || simpleListRow('No data yet','agent_logs is empty');
+      }
+      if (dashRecentTasksEl) {
+        dashRecentTasksEl.innerHTML = todoRows.slice(0,5).map(t => simpleListRow(t.title || 'Untitled task', `${(t.status||'N/A').replace('_',' ')} • ${formatDateTime(t.created_at)}`)).join('') || simpleListRow('No data yet','todos is empty');
+      }
     }
 
     function initAgentsRealtime() {
@@ -829,6 +894,7 @@
 
       if (tabName === 'agents') initAgentsRealtime();
       if (tabName === 'tasks') initTasksRealtime();
+      if (tabName === 'dashboard') loadDashboardData();
     }
 
     buttons.forEach(btn => btn.addEventListener('click', () => activateTab(btn.dataset.tab)));
@@ -837,6 +903,8 @@
       if (activeBtn) movePillTo(activeBtn);
     });
 
+    loadDashboardData();
+    setInterval(loadDashboardData, 45000);
     activateTab('dashboard');
   </script>
 </body>
