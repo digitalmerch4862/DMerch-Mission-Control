@@ -267,7 +267,7 @@
   <script>
     const SUPABASE_URL = 'https://wthkftbdepnujpbxnivk.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind0aGtmdGJkZXBudWpwYnhuaXZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzgzNzcsImV4cCI6MjA4ODcxNDM3N30.cW1bRz4gqe5DcT47bj4XjXXJ9NSIlMFzGtRAikC7Rm4';
-    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const supabaseClient = (window.supabase && window.supabase.createClient) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
     const AGENTS = [
       { name: 'Kristel', emoji: '🧠', role: 'Research Analyst', color: '#EC4899' },
@@ -495,6 +495,7 @@
     }
 
     async function loadAgentsData() {
+      if (!supabaseClient) { agentsLastSyncEl.textContent = 'Supabase SDK unavailable'; renderEmptyState('Supabase SDK failed to load.'); return; }
       const { data, error } = await supabaseClient
         .from('agent_logs')
         .select('agent_name, task_description, model_used, status, created_at')
@@ -644,6 +645,7 @@
       else if (donePct >= 31) message = 'Good progress — keep pushing! 💪';
       tasksMotivationBadgeEl.textContent = message;
       const ctx = document.getElementById('tasksDonutChart');
+      if (!window.Chart) return;
       if (tasksDonutChart) tasksDonutChart.destroy();
       tasksDonutChart = new Chart(ctx, { type:'doughnut', data:{ labels:['To Do','Doing','Done'], datasets:[{ data:[todoCount,doingCount,doneCount], backgroundColor:['#3B82F6','#F59E0B','#10B981'], borderWidth:0 }]}, options:{ cutout:'72%', plugins:{legend:{display:false}}, responsive:true, maintainAspectRatio:false }});
     }
@@ -652,6 +654,7 @@
     const tasksById = {};
 
     async function loadTasksData() {
+      if (!supabaseClient) { todoColumnEl.innerHTML = emptyColumnHTML('Supabase SDK failed to load.'); return; }
       const { data, error } = await supabaseClient.from('todos').select('id, title, category, priority, due_date, completed, status, track_status, created_at').order('created_at', { ascending: false }).limit(2000);
       if (error) {
         todoColumnEl.innerHTML = emptyColumnHTML(`Unable to fetch todos: ${error.message || 'Unknown error'}`);
