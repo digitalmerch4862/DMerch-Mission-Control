@@ -46,3 +46,5 @@ Purpose: Central memory file for Mission Control so all important context is sto
 - Mission dashboard URL: https://agent-dashboard-one-tan.vercel.app/
 - Cron automations are active but some jobs require proper channel/auth tuning.
 - Supabase logging hard-gate is enabled in agent prompts and script workflow.
+- 2026-03-14: Added keepalive policy for multiple Supabase free-tier projects using cron `supabase-keepalive-every-3days` (every 3 days, 12:00 AM Asia/Shanghai) with alert-only delivery.
+- 2026-03-14: Preferred mission-control Git repo for sync: https://github.com/digitalmerch4862/DMerch-Mission-Control.git
